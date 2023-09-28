@@ -7,15 +7,11 @@ import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AlertDialog
 import com.desafiolatam.desafiomarsrover.databinding.ActivityMainBinding
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.net.URL
 import kotlin.coroutines.CoroutineContext
 
-class MainActivity() : AppCompatActivity(), CoroutineScope {
+class MainActivity : AppCompatActivity(), CoroutineScope {
 
     private lateinit var binding: ActivityMainBinding
 
@@ -50,39 +46,48 @@ class MainActivity() : AppCompatActivity(), CoroutineScope {
 
     override fun onStart() {
         super.onStart()
-        downloadImages()
+        launch {
+            downloadImages()
+        }
     }
 
-    private fun downloadImages(){
-        launch {
-            binding.progressBarOne.visibility = View.VISIBLE
+    private suspend fun downloadImages(){
+        coroutineScope {
+            val deferredImages = ArrayList<Deferred<Bitmap?>>()
 
-            for(i in urlImageMarsRover.indices){
-                val bitmap: Bitmap? = withContext(Dispatchers.IO) {
+            binding.progressBarOne.visibility = View.VISIBLE
+            binding.progressBarTwo.visibility = View.VISIBLE
+            binding.progressBarThree.visibility = View.VISIBLE
+            binding.progressBarFour.visibility = View.VISIBLE
+
+            for (i in urlImageMarsRover.indices) {
+                val deferred = async(Dispatchers.IO) {
                     downloadImagesNasaRover(urlImageMarsRover[i])
                 }
+                deferredImages.add(deferred)
+            }
 
-                if(bitmap != null){
-                    when(i) {
-                        0 -> {
-                            binding.imageViewOne.setImageBitmap(bitmap)
-                            binding.progressBarOne.visibility = View.GONE
-                            binding.progressBarTwo.visibility = View.VISIBLE
-                        }
-                        1 -> {
-                            binding.imageViewTwo.setImageBitmap(bitmap)
-                            binding.progressBarTwo.visibility = View.GONE
-                            binding.progressBarThree.visibility = View.VISIBLE
-                        }
-                        2 -> {
-                            binding.imageViewThree.setImageBitmap(bitmap)
-                            binding.progressBarThree.visibility = View.GONE
-                            binding.progressBarFour.visibility = View.VISIBLE
-                        }
-                        3 -> {
-                            binding.imageViewFour.setImageBitmap(bitmap)
-                            binding.progressBarFour.visibility = View.GONE
-                        }
+            val bitmaps = deferredImages.awaitAll()
+
+            for (i in bitmaps.indices) {
+                val bitmap = bitmaps[i]
+
+                when (i) {
+                    0 -> {
+                        binding.imageViewOne.setImageBitmap(bitmap)
+                        binding.progressBarOne.visibility = View.GONE
+                    }
+                    1 -> {
+                        binding.imageViewTwo.setImageBitmap(bitmap)
+                        binding.progressBarTwo.visibility = View.GONE
+                    }
+                    2 -> {
+                        binding.imageViewThree.setImageBitmap(bitmap)
+                        binding.progressBarThree.visibility = View.GONE
+                    }
+                    3 -> {
+                        binding.imageViewFour.setImageBitmap(bitmap)
+                        binding.progressBarFour.visibility = View.GONE
                     }
                 }
             }
